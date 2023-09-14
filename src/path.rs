@@ -1,7 +1,4 @@
-use std::{
-    error, fmt,
-    hash::{Hash, Hasher},
-};
+use std::{error, fmt, hash::Hash};
 
 use serde::Deserialize;
 
@@ -22,7 +19,7 @@ impl fmt::Display for Fragment {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "&str")]
 pub struct Path {
     pub fragments: Vec<Fragment>,
@@ -85,16 +82,10 @@ impl fmt::Display for Path {
             "{}",
             self.fragments
                 .iter()
-                .map(|ref fragment| fragment.to_string())
+                .map(|fragment| fragment.to_string())
                 .collect::<Vec<_>>()
                 .join(".")
         )
-    }
-}
-
-impl Hash for Path {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.to_string().hash(state);
     }
 }
 
@@ -102,7 +93,7 @@ impl TryFrom<&str> for Path {
     type Error = PathError;
 
     fn try_from(string: &str) -> Result<Path, PathError> {
-        Self::from_str(string).ok_or(PathError("Failed to deserialize path"))
+        Self::from_str(string).ok_or(PathError("Failed parsing empty path"))
     }
 }
 
@@ -113,3 +104,24 @@ impl fmt::Display for PathError {
 }
 
 impl error::Error for PathError {}
+
+#[cfg(test)]
+mod tests {
+    use crate::path::Path;
+
+    #[test]
+    fn path_display_test() {
+        let string = "0.g-0.2.$r1";
+        let path = Path::from_str(string).unwrap();
+        assert_eq!(format!("{}", path), string);
+    }
+
+    #[test]
+    fn empty_path_string_test() {
+        assert!(Path::from_str("").is_none());
+        assert_eq!(
+            format!("{}", Path::try_from("").unwrap_err()),
+            "Failed parsing empty path"
+        )
+    }
+}

@@ -124,4 +124,19 @@ mod tests {
             _ => assert!(false),
         }
     }
+
+    #[test]
+    fn fail_resolving_paths() {
+        let working_index = Path::from_str("0").unwrap();
+        let out_of_range = Path::from_str("1").unwrap();
+        let working_name = Path::from_str("a").unwrap();
+        let nonexistent_name = Path::from_str("b").unwrap();
+        let graph: RuntimeGraph =
+            serde_json::from_str(r#"{"inkVersion": 21, "root": [["^string", null], {"a": [null]}]}"#)
+                .unwrap();
+        assert!(graph.resolve_path(&working_index).is_some());
+        assert!(graph.resolve_path(&working_name).is_some());
+        assert!(graph.resolve_path(&out_of_range).is_none());
+        assert!(graph.resolve_path(&nonexistent_name).is_none());
+    }
 }

@@ -102,6 +102,10 @@ impl Container {
     }*/
 
     pub fn search_by_name(&self, name: &str) -> Option<&RuntimeObject> {
+        if let Some(object) = self.named_subelements.get(name) {
+            return Some(object);
+        }
+
         for runtime_object in &self.content {
             if let Some(other_name) = runtime_object.name() {
                 if name == other_name {
