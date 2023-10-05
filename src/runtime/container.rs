@@ -1,6 +1,7 @@
-use std::{collections::HashMap, error, fmt};
+use std::collections::HashMap;
 
 use serde::Deserialize;
+use thiserror::Error;
 
 use crate::runtime::RuntimeObject;
 
@@ -32,8 +33,17 @@ struct ContainerData {
     named_subelements: HashMap<String, RuntimeObject>,
 }
 
-#[derive(Debug)]
-struct ContainerError(&'static str);
+#[derive(Debug, Error)]
+enum ContainerError {
+    #[error("Failed to deserialize Container, expected object or null, found {0}")]
+    UnexpectedRuntimeObject(RuntimeObject),
+    #[error("Failed to deserialize Container, no elements")]
+    NoElements,
+    #[error("Failed to deserialize Container element as RuntimeObject, found null")]
+    UnexpectedNull,
+    #[error("Failed to deserialize Container element as RuntimeObject, found map")]
+    UnexpectedMapObject(ContainerData),
+}
 
 impl Container {
     pub fn new() -> Container {
@@ -122,25 +132,20 @@ impl TryFrom<Vec<ContainerElement>> for Container {
         let data = match elements.pop() {
             Some(ContainerElement::SpecialFinal(Some(data))) => data,
             Some(ContainerElement::SpecialFinal(None)) => ContainerData::default(),
-            Some(ContainerElement::RuntimeObject(_)) => {
-                return Err(ContainerError(
-                    "Failed to deserialize Container, does not end with object or null",
-                ))
+            Some(ContainerElement::RuntimeObject(object)) => {
+                return Err(ContainerError::UnexpectedRuntimeObject(object))
             }
-            None => {
-                return Err(ContainerError(
-                    "Failed to deserialize Container, no elements",
-                ))
-            }
+            None => return Err(ContainerError::NoElements),
         };
         // map other elements to RuntimeObject
         let content = elements
             .into_iter()
             .map(|item| match item {
                 ContainerElement::RuntimeObject(element) => Ok(element),
-                ContainerElement::SpecialFinal(_) => Err(ContainerError(
-                    "Failed to deserialize Container element as RuntimeObject",
-                )),
+                ContainerElement::SpecialFinal(None) => Err(ContainerError::UnexpectedNull),
+                ContainerElement::SpecialFinal(Some(found)) => {
+                    Err(ContainerError::UnexpectedMapObject(found))
+                }
             })
             .collect::<Result<_, _>>()?;
         let visits_should_be_counted = data.flags & 0x1 > 0;
@@ -156,11 +161,3 @@ impl TryFrom<Vec<ContainerElement>> for Container {
         })
     }
 }
-
-impl fmt::Display for ContainerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl error::Error for ContainerError {}

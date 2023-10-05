@@ -1,9 +1,10 @@
 use std::{
-    error, fmt,
+    fmt,
     hash::{Hash, Hasher},
 };
 
 use serde::Deserialize;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 pub enum Fragment {
@@ -29,8 +30,9 @@ pub struct Path {
     pub is_relative: bool,
 }
 
-#[derive(Debug)]
-pub struct PathError(&'static str);
+#[derive(Debug, Error)]
+#[error("Failed to deserialize path")]
+pub struct PathError;
 
 impl Path {
     fn from_fragments(fragments: Vec<Fragment>, is_relative: bool) -> Path {
@@ -102,14 +104,6 @@ impl TryFrom<&str> for Path {
     type Error = PathError;
 
     fn try_from(string: &str) -> Result<Path, PathError> {
-        Self::from_str(string).ok_or(PathError("Failed to deserialize path"))
+        Self::from_str(string).ok_or(PathError)
     }
 }
-
-impl fmt::Display for PathError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl error::Error for PathError {}
